@@ -1,0 +1,53 @@
+{
+  "name": "react-matchings",
+  "version": "0.0.1",
+  "description": "A React component for matching questions and answers",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts && npm run build:css",
+    "build:css": "npx tailwindcss -i ./src/index.css -o ./dist/index.css --minify",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/F-47/react-qa-matching.git"
+  },
+  "keywords": [
+    "react",
+    "react-component",
+    "matching",
+    "question-answer",
+    "qa",
+    "quiz",
+    "exam",
+    "assessment",
+    "education",
+    "edtech",
+    "rtl",
+    "accessibility"
+  ],
+  "author": "Fares Galal",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18 <20",
+    "react-dom": ">=18 <20"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/postcss": "^4.1.18",
+    "clsx": "^2.1.1",
+    "tailwind": "^4.0.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.1.18",
+    "tsup": "^8.5.1"
+  }
+}

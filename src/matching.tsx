@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "./lib/utils";
 
-export type Match = {
+export type TMatch = {
   questionId: number;
   answerId: number;
 };
@@ -17,7 +17,7 @@ type Props = {
   circleRadius?: number;
   offset?: number;
   disabled?: boolean;
-  onChange?: (matches: Match[]) => void;
+  onChange?: (matches: TMatch[]) => void;
 };
 
 type Line = {

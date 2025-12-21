@@ -27,10 +27,10 @@ pnpm add react-matchings
 
 ## Basic Usage
 
-First, import the component and its CSS:
+First, import the component, its types, and CSS:
 
 ```tsx
-import { Matching } from "react-matchings";
+import { Matching, type TMatch } from "react-matchings";
 import "react-matchings/dist/index.css";
 
 function App() {
@@ -46,7 +46,7 @@ function App() {
     { id: 3, text: "A programming language" },
   ];
 
-  const handleMatchChange = (matches) => {
+  const handleMatchChange = (matches: TMatch[]): void => {
     console.log("Current matches:", matches);
     // matches format: [{ questionId: 1, answerId: 1 }, ...]
   };
@@ -103,16 +103,24 @@ const answers = [
 
 ---
 
+### Optional Props
+
 #### `onChange`
 
 Callback function that is called whenever the matches change.
 
-**Type:** `(matches: { questionId: number | string; answerId: number | string }[]) => void`
+**Type:** `(matches: TMatch[]) => void`
+
+**Default:** `undefined`
+
+**Note:** Import `TMatch` type from the package: `import { type TMatch } from "react-matchings";`
 
 **Example:**
 
 ```tsx
-const handleChange = (matches) => {
+import { Matching, type TMatch } from "react-matchings";
+
+const handleChange = (matches: TMatch[]): void => {
   // matches is an array of connections
   // Example: [{ questionId: 1, answerId: 2 }, { questionId: 2, answerId: 1 }]
   console.log("Matches updated:", matches);
@@ -122,9 +130,9 @@ const handleChange = (matches) => {
 <Matching onChange={handleChange} ... />
 ```
 
----
+**Note:** This prop is optional. If not provided, the component will still function but won't notify parent components of changes.
 
-### Optional Props
+---
 
 #### `className`
 
@@ -149,13 +157,13 @@ Additional CSS classes to apply to the container element.
 
 #### `questionClassName`
 
-Custom CSS classes for question buttons. Can be a string or a function that receives state.
+Custom CSS classes for question buttons.
 
-**Type:** `string | ((state: { isMatched: boolean; isDragging: boolean }) => string)`
+**Type:** `string`
 
 **Default:** `undefined`
 
-**Example (string):**
+**Example:**
 
 ```tsx
 <Matching
@@ -166,73 +174,11 @@ Custom CSS classes for question buttons. Can be a string or a function that rece
 />
 ```
 
-**Example (function with state):**
-
-```tsx
-<Matching
-  questionClassName={({ isMatched, isDragging }) => {
-    if (isDragging) return "bg-yellow-500 text-black";
-    if (isMatched) return "bg-green-500 text-white";
-    return "bg-gray-200 text-gray-800";
-  }}
-  questions={questions}
-  answers={answers}
-  onChange={handleChange}
-/>
-```
-
-**State properties:**
-
-- `isMatched`: `boolean` - Whether the question is currently matched to an answer
-- `isDragging`: `boolean` - Whether the question is currently being dragged
-
 ---
 
 #### `answerClassName`
 
-Custom CSS classes for answer buttons. Can be a string or a function that receives state.
-
-**Type:** `string | ((state: { isMatched: boolean; isHovering: boolean }) => string)`
-
-**Default:** `undefined`
-
-**Example (string):**
-
-```tsx
-<Matching
-  answerClassName="bg-purple-500 hover:bg-purple-600 text-white"
-  questions={questions}
-  answers={answers}
-  onChange={handleChange}
-/>
-```
-
-**Example (function with state):**
-
-```tsx
-<Matching
-  answerClassName={({ isMatched, isHovering }) => {
-    if (isHovering && !isMatched)
-      return "bg-yellow-300 border-2 border-yellow-500";
-    if (isMatched) return "bg-green-400 text-white font-semibold";
-    return "bg-gray-100 text-gray-700";
-  }}
-  questions={questions}
-  answers={answers}
-  onChange={handleChange}
-/>
-```
-
-**State properties:**
-
-- `isMatched`: `boolean` - Whether the answer is currently matched to a question
-- `isHovering`: `boolean` - Whether a question is being dragged over this answer
-
----
-
-#### `lineClassName`
-
-Custom CSS classes for the SVG container that draws the connecting lines.
+Custom CSS classes for answer buttons.
 
 **Type:** `string`
 
@@ -242,7 +188,7 @@ Custom CSS classes for the SVG container that draws the connecting lines.
 
 ```tsx
 <Matching
-  lineClassName="opacity-90"
+  answerClassName="bg-purple-500 hover:bg-purple-600 text-white"
   questions={questions}
   answers={answers}
   onChange={handleChange}
@@ -376,7 +322,7 @@ const [isDisabled, setIsDisabled] = useState(false);
 
 ```tsx
 import { useState } from "react";
-import { Matching } from "react-matchings";
+import { Matching, type TMatch } from "react-matchings";
 import "react-matchings/dist/index.css";
 
 function QuizApp() {
@@ -392,10 +338,10 @@ function QuizApp() {
     { id: 3, text: "Canberra" },
   ];
 
-  const [matches, setMatches] = useState([]);
-  const [submitted, setSubmitted] = useState(false);
+  const [matches, setMatches] = useState<TMatch[]>([]);
+  const [submitted, setSubmitted] = useState<boolean>(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = (): void => {
     setSubmitted(true);
     // Check answers, calculate score, etc.
     console.log("Submitted matches:", matches);
@@ -427,7 +373,7 @@ function QuizApp() {
 ### Example 2: Custom Styled Component
 
 ```tsx
-import { Matching } from "react-matchings";
+import { Matching, type TMatch } from "react-matchings";
 import "react-matchings/dist/index.css";
 
 function StyledMatching() {
@@ -441,28 +387,18 @@ function StyledMatching() {
     { id: 2, text: "Answer 2" },
   ];
 
+  const handleChange = (matches: TMatch[]): void => {
+    console.log(matches);
+  };
+
   return (
     <Matching
       questions={questions}
       answers={answers}
-      onChange={(matches) => console.log(matches)}
+      onChange={handleChange}
       className="p-8 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl shadow-lg"
-      questionClassName={({ isMatched, isDragging }) => {
-        let base = "p-4 rounded-lg font-semibold transition-all duration-200 ";
-        if (isDragging)
-          base += "bg-yellow-400 text-yellow-900 shadow-lg scale-105";
-        else if (isMatched) base += "bg-green-500 text-white";
-        else base += "bg-blue-500 text-white hover:bg-blue-600";
-        return base;
-      }}
-      answerClassName={({ isMatched, isHovering }) => {
-        let base = "p-4 rounded-lg font-semibold transition-all duration-200 ";
-        if (isHovering && !isMatched)
-          base += "bg-yellow-300 text-yellow-900 border-2 border-yellow-500";
-        else if (isMatched) base += "bg-green-500 text-white";
-        else base += "bg-purple-500 text-white hover:bg-purple-600";
-        return base;
-      }}
+      questionClassName="p-4 rounded-lg font-semibold transition-all duration-200 bg-blue-500 text-white hover:bg-blue-600"
+      answerClassName="p-4 rounded-lg font-semibold transition-all duration-200 bg-purple-500 text-white hover:bg-purple-600"
       lineColor="#8b5cf6"
       circleColor="#e9d5ff"
       circleRadius={10}
@@ -476,7 +412,7 @@ function StyledMatching() {
 
 ```tsx
 import { useState, useEffect } from "react";
-import { Matching } from "react-matchings";
+import { Matching, type TMatch } from "react-matchings";
 import "react-matchings/dist/index.css";
 
 function MatchingWithInitialState() {
@@ -492,18 +428,23 @@ function MatchingWithInitialState() {
     { id: 3, text: "Google" },
   ];
 
-  const [matches, setMatches] = useState([]);
+  const [matches, setMatches] = useState<TMatch[]>([]);
 
   // Load initial matches (e.g., from localStorage or API)
   useEffect(() => {
     const savedMatches = localStorage.getItem("matches");
     if (savedMatches) {
-      setMatches(JSON.parse(savedMatches));
+      try {
+        const parsed: TMatch[] = JSON.parse(savedMatches);
+        setMatches(parsed);
+      } catch (error) {
+        console.error("Failed to parse saved matches:", error);
+      }
     }
   }, []);
 
   // Save matches when they change
-  const handleMatchChange = (newMatches) => {
+  const handleMatchChange = (newMatches: TMatch[]): void => {
     setMatches(newMatches);
     localStorage.setItem("matches", JSON.stringify(newMatches));
   };
@@ -522,7 +463,7 @@ function MatchingWithInitialState() {
 
 ```tsx
 import { useState, useMemo } from "react";
-import { Matching } from "react-matchings";
+import { Matching, type TMatch } from "react-matchings";
 import "react-matchings/dist/index.css";
 
 function AssessmentComponent() {
@@ -539,14 +480,14 @@ function AssessmentComponent() {
   ];
 
   // Correct answers
-  const correctMatches = [
+  const correctMatches: TMatch[] = [
     { questionId: 1, answerId: 1 },
     { questionId: 2, answerId: 2 },
     { questionId: 3, answerId: 3 },
   ];
 
-  const [matches, setMatches] = useState([]);
-  const [showResults, setShowResults] = useState(false);
+  const [matches, setMatches] = useState<TMatch[]>([]);
+  const [showResults, setShowResults] = useState<boolean>(false);
 
   const score = useMemo(() => {
     if (!showResults) return null;
@@ -614,16 +555,27 @@ You can override default styles using the className props, or customize the colo
 
 ## TypeScript Support
 
-This package includes TypeScript definitions. The component is fully typed:
+This package includes full TypeScript definitions. Import types for type-safe usage:
 
 ```tsx
-import { Matching } from "react-matchings";
+import { Matching, type TMatch } from "react-matchings";
 
-// Types are automatically inferred
-const handleChange = (
-  matches: { questionId: number | string; answerId: number | string }[]
-) => {
-  // matches is properly typed
+// Use the TMatch type for type safety
+const handleChange = (matches: TMatch[]): void => {
+  // matches is properly typed as TMatch[]
+  // Each match has questionId: number and answerId: number
+  matches.forEach((match) => {
+    console.log(match.questionId, match.answerId);
+  });
+};
+```
+
+The `TMatch` type is defined as:
+
+```tsx
+type TMatch = {
+  questionId: number;
+  answerId: number;
 };
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "react-matchings",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "A React component for matching questions and answers",
   "main": "dist/index.cjs",
   "module": "dist/index.js",

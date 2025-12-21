@@ -1,6 +1,6 @@
 {
   "name": "react-matchings",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A React component for matching questions and answers",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/F-47/react-qa-matching.git"
+    "url": "git+https://github.com/F-47/react-matchings"
   },
   "keywords": [
     "react",

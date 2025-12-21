@@ -396,7 +396,7 @@ function StyledMatching() {
       questions={questions}
       answers={answers}
       onChange={handleChange}
-      className="p-8 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl shadow-lg"
+      className="p-8 bg-linear-to-br from-blue-50 to-purple-50 rounded-xl shadow-lg"
       questionClassName="p-4 rounded-lg font-semibold transition-all duration-200 bg-blue-500 text-white hover:bg-blue-600"
       answerClassName="p-4 rounded-lg font-semibold transition-all duration-200 bg-purple-500 text-white hover:bg-purple-600"
       lineColor="#8b5cf6"
@@ -408,58 +408,7 @@ function StyledMatching() {
 }
 ```
 
-### Example 3: With Initial Matches
-
-```tsx
-import { useState, useEffect } from "react";
-import { Matching, type TMatch } from "react-matchings";
-import "react-matchings/dist/index.css";
-
-function MatchingWithInitialState() {
-  const questions = [
-    { id: 1, text: "React" },
-    { id: 2, text: "Vue" },
-    { id: 3, text: "Angular" },
-  ];
-
-  const answers = [
-    { id: 1, text: "Facebook" },
-    { id: 2, text: "Evan You" },
-    { id: 3, text: "Google" },
-  ];
-
-  const [matches, setMatches] = useState<TMatch[]>([]);
-
-  // Load initial matches (e.g., from localStorage or API)
-  useEffect(() => {
-    const savedMatches = localStorage.getItem("matches");
-    if (savedMatches) {
-      try {
-        const parsed: TMatch[] = JSON.parse(savedMatches);
-        setMatches(parsed);
-      } catch (error) {
-        console.error("Failed to parse saved matches:", error);
-      }
-    }
-  }, []);
-
-  // Save matches when they change
-  const handleMatchChange = (newMatches: TMatch[]): void => {
-    setMatches(newMatches);
-    localStorage.setItem("matches", JSON.stringify(newMatches));
-  };
-
-  return (
-    <Matching
-      questions={questions}
-      answers={answers}
-      onChange={handleMatchChange}
-    />
-  );
-}
-```
-
-### Example 4: Assessment with Validation
+### Example 3: Assessment with Validation
 
 ```tsx
 import { useState, useMemo } from "react";

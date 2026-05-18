@@ -79,7 +79,7 @@ export function Matching({
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!dragging || !containerRef.current) return;
+      if (dragging == null || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       setDragLine((prev) =>
         prev
@@ -134,7 +134,7 @@ export function Matching({
   };
 
   useEffect(() => {
-    if (!dragging) return;
+    if (dragging == null) return;
     const handleUp = () => {
       setDragging(null);
       setDragLine(null);
@@ -227,6 +227,7 @@ export function Matching({
               key={q.id}
               ref={(el) => void (questionRefs.current[q.id] = el)}
               type="button"
+              disabled={disabled}
               onMouseDown={() => handleMouseDown(q.id)}
               onClick={() => isMatched && removeMatch(q.id)}
               className={cn(
@@ -249,6 +250,7 @@ export function Matching({
               key={a.id}
               ref={(el) => void (answerRefs.current[a.id] = el)}
               type="button"
+              disabled={disabled}
               onMouseUp={() => handleMouseUp(a.id)}
               className={cn(
                 "p-4 rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",

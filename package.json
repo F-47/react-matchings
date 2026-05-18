@@ -1,20 +1,24 @@
 {
   "name": "react-matchings",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "description": "A React component for matching questions and answers",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts && npm run build:css",
-    "build:css": "npx tailwindcss -i ./src/index.css -o ./dist/index.css --minify",
+    "build": "tsup src/index.ts --format cjs,esm --dts && npm run build:css && npm run build:inject-css",
+    "build:css": "tailwindcss -i ./src/index.css -o ./dist/index.css --minify",
+    "build:inject-css": "node scripts/inject-css.mjs",
     "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "tsc"
+    "lint": "tsc --noEmit"
   },
+  "files": [
+    "dist"
+  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/F-47/react-matchings"
+    "url": "git+https://github.com/F-47/react-matchings.git"
   },
   "keywords": [
     "react",
@@ -37,17 +41,15 @@
     "react-dom": ">=18 <20"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "tailwindcss": "^4.3.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@tailwindcss/cli": "^4.1.18",
-    "@tailwindcss/postcss": "^4.1.18",
     "clsx": "^2.1.1",
-    "tailwind": "^4.0.0",
-    "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4.1.18",
-    "tsup": "^8.5.1"
+    "tailwind-merge": "^3.4.0"
   }
 }

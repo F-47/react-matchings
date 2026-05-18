@@ -3,12 +3,11 @@
     "target": "ES2019",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "declaration": true,
-    "outDir": "dist",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
+    "noEmit": true,
     "skipLibCheck": true
   },
   "include": ["src"]

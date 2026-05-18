@@ -50,30 +50,26 @@ function App() {
   };
 
   return (
-    <Matching
-      questions={questions}
-      answers={answers}
-      onChange={handleChange}
-    />
+    <Matching questions={questions} answers={answers} onChange={handleChange} />
   );
 }
 ```
 
 ## Props
 
-| Prop | Type | Default | Description |
-| --- | --- | --- | --- |
-| `questions` | `{ id: number; text: string }[]` | Required | Items rendered in the left column. |
-| `answers` | `{ id: number; text: string }[]` | Required | Items rendered in the right column. |
-| `onChange` | `(matches: TMatch[]) => void` | `undefined` | Called whenever the user creates or removes a match. |
-| `className` | `string` | `undefined` | Additional classes for the root container. |
-| `questionClassName` | `string` | `undefined` | Additional classes for question buttons. |
-| `answerClassName` | `string` | `undefined` | Additional classes for answer buttons. |
-| `lineColor` | `string` | `"black"` | CSS color value for connector lines. |
-| `circleColor` | `string` | `"white"` | CSS color value for connector endpoints. |
-| `circleRadius` | `number` | `8` | Radius of connector endpoints in pixels. |
-| `offset` | `number` | `10` | Distance from button edges to connector endpoints in pixels. |
-| `disabled` | `boolean` | `false` | Prevents users from creating or removing matches. |
+| Prop                | Type                             | Default     | Description                                                  |
+| ------------------- | -------------------------------- | ----------- | ------------------------------------------------------------ |
+| `questions`         | `{ id: number; text: string }[]` | Required    | Items rendered in the left column.                           |
+| `answers`           | `{ id: number; text: string }[]` | Required    | Items rendered in the right column.                          |
+| `onChange`          | `(matches: TMatch[]) => void`    | `undefined` | Called whenever the user creates or removes a match.         |
+| `className`         | `string`                         | `undefined` | Additional classes for the root container.                   |
+| `questionClassName` | `string`                         | `undefined` | Additional classes for question buttons.                     |
+| `answerClassName`   | `string`                         | `undefined` | Additional classes for answer buttons.                       |
+| `lineColor`         | `string`                         | `"black"`   | CSS color value for connector lines.                         |
+| `circleColor`       | `string`                         | `"white"`   | CSS color value for connector endpoints.                     |
+| `circleRadius`      | `number`                         | `8`         | Radius of connector endpoints in pixels.                     |
+| `offset`            | `number`                         | `10`        | Distance from button edges to connector endpoints in pixels. |
+| `disabled`          | `boolean`                        | `false`     | Prevents users from creating or removing matches.            |
 
 ## Types
 
@@ -143,8 +139,8 @@ export function Assessment() {
       correctMatches.some(
         (correct) =>
           correct.questionId === match.questionId &&
-          correct.answerId === match.answerId
-      )
+          correct.answerId === match.answerId,
+      ),
     ).length;
   }, [matches]);
 

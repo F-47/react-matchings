@@ -4,6 +4,8 @@ A React component for building question-and-answer matching interactions. It ren
 
 Default styles are included automatically when the component is imported. Consumers do not need to import a separate CSS file.
 
+[View the package on npm](https://www.npmjs.com/package/react-matchings)
+
 ## Features
 
 - Drag-to-connect matching interaction
@@ -227,7 +229,7 @@ npm pack
 Then install the generated tarball in a test React application:
 
 ```bash
-npm install /absolute/path/to/react-matchings/react-matchings-0.0.8.tgz
+npm install /absolute/path/to/react-matchings/react-matchings-0.1.0.tgz
 ```
 
 Import only the component:

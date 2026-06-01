@@ -7,9 +7,13 @@ Default styles are included automatically when the component is imported. Consum
 ## Features
 
 - Drag-to-connect matching interaction
+- Pointer support for mouse, touch, and pen input
+- Automatic scrolling while dragging near a scroll container edge
+- One-to-one answers by default, with optional answer reuse
 - Controlled change callback for saving or validating answers
 - Custom classes for the container, question buttons, and answer buttons
 - Configurable connector line color, endpoint color, radius, and offset
+- Per-match styles for validation feedback
 - Disabled state for submitted or read-only flows
 - TypeScript definitions included
 
@@ -70,6 +74,9 @@ function App() {
 | `circleRadius`      | `number`                         | `8`         | Radius of connector endpoints in pixels.                     |
 | `offset`            | `number`                         | `10`        | Distance from button edges to connector endpoints in pixels. |
 | `disabled`          | `boolean`                        | `false`     | Prevents users from creating or removing matches.            |
+| `allowAnswerReuse`  | `boolean`                        | `false`     | Allows multiple questions to connect to the same answer.     |
+| `autoScroll`        | `boolean \| TAutoScrollOptions`  | `true`      | Scrolls the nearest overflow container while dragging near an edge. |
+| `getMatchStyles`    | `(match: TMatch) => TMatchStyles \| undefined` | `undefined` | Returns connector and item styles for an established match. |
 
 ## Types
 
@@ -77,6 +84,18 @@ function App() {
 type TMatch = {
   questionId: number;
   answerId: number;
+};
+
+type TMatchStyles = {
+  lineColor?: string;
+  circleColor?: string;
+  questionClassName?: string;
+  answerClassName?: string;
+};
+
+type TAutoScrollOptions = {
+  edgeThreshold?: number;
+  maxSpeed?: number;
 };
 ```
 
@@ -151,6 +170,21 @@ export function Assessment() {
         answers={answers}
         onChange={setMatches}
         disabled={submitted}
+        getMatchStyles={(match) =>
+          submitted &&
+          !correctMatches.some(
+            (correct) =>
+              correct.questionId === match.questionId &&
+              correct.answerId === match.answerId,
+          )
+            ? {
+                lineColor: "#ef4444",
+                circleColor: "#ef4444",
+                questionClassName: "bg-red-500",
+                answerClassName: "bg-red-500",
+              }
+            : undefined
+        }
       />
 
       <button
@@ -174,9 +208,11 @@ export function Assessment() {
 ## Behavior
 
 - Press and drag from a question to an answer to create a match.
+- Drag near the edge of an overflow container to scroll it.
 - Click a matched question to remove its current match.
 - A question can have one answer at a time.
-- An answer can be connected to more than one question.
+- An answer can have one question by default. Connecting it again replaces its previous match.
+- Set `allowAnswerReuse` to `true` to connect an answer to more than one question.
 - `onChange` receives the complete match list after each create or remove action.
 
 ## Local Testing

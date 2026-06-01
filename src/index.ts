@@ -1,2 +1,7 @@
 export { Matching } from "./matching";
-export type { TMatch } from "./matching";
+export type {
+  MatchingProps,
+  TAutoScrollOptions,
+  TMatch,
+  TMatchStyles,
+} from "./matching";

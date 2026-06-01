@@ -6,7 +6,19 @@ export type TMatch = {
   answerId: number;
 };
 
-type Props = {
+export type TMatchStyles = {
+  lineColor?: string;
+  circleColor?: string;
+  questionClassName?: string;
+  answerClassName?: string;
+};
+
+export type TAutoScrollOptions = {
+  edgeThreshold?: number;
+  maxSpeed?: number;
+};
+
+export type MatchingProps = {
   questions: { id: number; text: string }[];
   answers: { id: number; text: string }[];
   className?: string;
@@ -17,15 +29,42 @@ type Props = {
   circleRadius?: number;
   offset?: number;
   disabled?: boolean;
+  allowAnswerReuse?: boolean;
+  autoScroll?: boolean | TAutoScrollOptions;
+  getMatchStyles?: (match: TMatch) => TMatchStyles | undefined;
   onChange?: (matches: TMatch[]) => void;
 };
 
-type Line = {
-  qId: string;
-  aId: string;
-  start: { x: number; y: number };
-  end: { x: number; y: number };
+type Point = { x: number; y: number };
+
+type Line = TMatch & {
+  start: Point;
+  end: Point;
 };
+
+const DEFAULT_EDGE_THRESHOLD = 64;
+const DEFAULT_MAX_SCROLL_SPEED = 16;
+
+function toMatches(matches: Record<number, number>): TMatch[] {
+  return Object.entries(matches).map(([questionId, answerId]) => ({
+    questionId: Number(questionId),
+    answerId,
+  }));
+}
+
+function findScrollableAncestor(element: HTMLElement): HTMLElement {
+  let current = element.parentElement;
+
+  while (current) {
+    const { overflowY } = window.getComputedStyle(current);
+    if (/(auto|scroll|overlay)/.test(overflowY) && current.scrollHeight > current.clientHeight) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+}
 
 export function Matching({
   questions,
@@ -38,25 +77,27 @@ export function Matching({
   circleRadius = 8,
   offset = 10,
   disabled,
+  allowAnswerReuse = false,
+  autoScroll = true,
+  getMatchStyles,
   onChange,
-}: Props) {
+}: MatchingProps) {
   const [matches, setMatches] = useState<Record<number, number>>({});
   const [lines, setLines] = useState<Line[]>([]);
   const [dragging, setDragging] = useState<number | null>(null);
-  const [dragLine, setDragLine] = useState<{
-    start: { x: number; y: number };
-    end: { x: number; y: number };
-    questionId: number;
-  } | null>(null);
+  const [dragLine, setDragLine] = useState<{ start: Point; end: Point } | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const questionRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const answerRefs = useRef<Record<number, HTMLButtonElement | null>>({});
+  const pointerRef = useRef<{ id: number; clientX: number; clientY: number } | null>(null);
+  const scrollElementRef = useRef<HTMLElement | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
 
   const getElementCenter = useCallback(
-    (el: HTMLElement | null, isAnswer = false) => {
-      if (!el || !containerRef.current) return null;
-      const rect = el.getBoundingClientRect();
+    (element: HTMLElement | null, isAnswer = false) => {
+      if (!element || !containerRef.current) return null;
+      const rect = element.getBoundingClientRect();
       const containerRect = containerRef.current.getBoundingClientRect();
       return {
         x: isAnswer
@@ -68,102 +109,165 @@ export function Matching({
     [circleRadius, offset]
   );
 
-  const handleMouseDown = (qId: number) => {
-    if (disabled) return;
-    setDragging(qId);
-    requestAnimationFrame(() => {
-      const start = getElementCenter(questionRefs.current[qId]);
-      if (start) setDragLine({ start, end: start, questionId: qId });
+  const refreshLines = useCallback(() => {
+    const nextLines = toMatches(matches)
+      .map(({ questionId, answerId }) => {
+        const start = getElementCenter(questionRefs.current[questionId]);
+        const end = getElementCenter(answerRefs.current[answerId], true);
+        return start && end ? { questionId, answerId, start, end } : null;
+      })
+      .filter((line): line is Line => line !== null);
+
+    setLines(nextLines);
+  }, [getElementCenter, matches]);
+
+  const refreshDragLine = useCallback(() => {
+    if (dragging == null || !containerRef.current || !pointerRef.current) return;
+    const start = getElementCenter(questionRefs.current[dragging]);
+    if (!start) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setDragLine({
+      start,
+      end: {
+        x: pointerRef.current.clientX - rect.left,
+        y: pointerRef.current.clientY - rect.top,
+      },
     });
-  };
+  }, [dragging, getElementCenter]);
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (dragging == null || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      setDragLine((prev) =>
-        prev
-          ? {
-              ...prev,
-              end: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-            }
-          : null
-      );
-    },
-    [dragging]
-  );
+  const stopAutoScroll = useCallback(() => {
+    if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+    scrollFrameRef.current = null;
+    scrollElementRef.current = null;
+  }, []);
 
-  const handleMouseUp = (aId: number) => {
-    if (dragging != null) {
-      setMatches((prev) => {
-        const newMatches = { ...prev, [dragging]: aId };
-        if (onChange) {
-          // notify parent immediately on every change
-          queueMicrotask(() =>
-            onChange(
-              Object.entries(newMatches).map(([qId, aId]) => ({
-                questionId: Number(qId),
-                answerId: aId,
-              }))
-            )
-          );
-        }
-        return newMatches;
-      });
+  const runAutoScroll = useCallback(() => {
+    scrollFrameRef.current = null;
+    if (autoScroll === false || dragging == null || !pointerRef.current) return;
+
+    const scrollElement = scrollElementRef.current;
+    if (!scrollElement) return;
+
+    const isDocument = scrollElement === document.scrollingElement;
+    const rect = isDocument
+      ? { top: 0, bottom: window.innerHeight }
+      : scrollElement.getBoundingClientRect();
+    const edgeThreshold =
+      typeof autoScroll === "object"
+        ? (autoScroll.edgeThreshold ?? DEFAULT_EDGE_THRESHOLD)
+        : DEFAULT_EDGE_THRESHOLD;
+    const maxSpeed =
+      typeof autoScroll === "object"
+        ? (autoScroll.maxSpeed ?? DEFAULT_MAX_SCROLL_SPEED)
+        : DEFAULT_MAX_SCROLL_SPEED;
+    const { clientY } = pointerRef.current;
+    let speed = 0;
+
+    if (clientY < rect.top + edgeThreshold) {
+      speed = -maxSpeed * (1 - Math.max(0, clientY - rect.top) / edgeThreshold);
+    } else if (clientY > rect.bottom - edgeThreshold) {
+      speed = maxSpeed * (1 - Math.max(0, rect.bottom - clientY) / edgeThreshold);
     }
+
+    if (speed !== 0) {
+      const previousScrollTop = scrollElement.scrollTop;
+      scrollElement.scrollTop += speed;
+      if (scrollElement.scrollTop !== previousScrollTop) {
+        refreshLines();
+        refreshDragLine();
+      }
+    }
+
+    scrollFrameRef.current = requestAnimationFrame(runAutoScroll);
+  }, [autoScroll, dragging, refreshDragLine, refreshLines]);
+
+  const cancelDragging = useCallback(() => {
     setDragging(null);
     setDragLine(null);
+    pointerRef.current = null;
+    stopAutoScroll();
+  }, [stopAutoScroll]);
+
+  const handlePointerDown = (event: React.PointerEvent, questionId: number) => {
+    if (disabled || !containerRef.current) return;
+    event.preventDefault();
+    pointerRef.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+    scrollElementRef.current = findScrollableAncestor(containerRef.current);
+    setDragging(questionId);
   };
 
-  const removeMatch = (qId: number) => {
-    setMatches((prev) => {
-      const newMatches = { ...prev };
-      delete newMatches[qId];
-      if (onChange) {
-        queueMicrotask(() =>
-          onChange(
-            Object.entries(newMatches).map(([qId, aId]) => ({
-              questionId: Number(qId),
-              answerId: aId,
-            }))
-          )
-        );
-      }
-      return newMatches;
+  const handlePointerMove = useCallback(
+    (event: PointerEvent) => {
+      if (dragging == null || pointerRef.current?.id !== event.pointerId) return;
+      pointerRef.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+      refreshDragLine();
+    },
+    [dragging, refreshDragLine]
+  );
+
+  const handlePointerUp = (event: React.PointerEvent, answerId: number) => {
+    if (dragging != null && pointerRef.current?.id === event.pointerId) {
+      setMatches((current) => {
+        const next = { ...current };
+        if (!allowAnswerReuse) {
+          for (const [questionId, matchedAnswerId] of Object.entries(next)) {
+            if (matchedAnswerId === answerId) delete next[Number(questionId)];
+          }
+        }
+        next[dragging] = answerId;
+        queueMicrotask(() => onChange?.(toMatches(next)));
+        return next;
+      });
+    }
+    cancelDragging();
+  };
+
+  const removeMatch = (questionId: number) => {
+    setMatches((current) => {
+      const next = { ...current };
+      delete next[questionId];
+      queueMicrotask(() => onChange?.(toMatches(next)));
+      return next;
     });
   };
 
   useEffect(() => {
     if (dragging == null) return;
-    const handleUp = () => {
-      setDragging(null);
-      setDragLine(null);
+    refreshDragLine();
+    if (autoScroll !== false && scrollFrameRef.current === null) {
+      scrollFrameRef.current = requestAnimationFrame(runAutoScroll);
+    }
+
+    const handleUp = (event: PointerEvent) => {
+      if (pointerRef.current?.id === event.pointerId) cancelDragging();
     };
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleUp);
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handleUp);
+    document.addEventListener("pointercancel", handleUp);
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleUp);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handleUp);
+      document.removeEventListener("pointercancel", handleUp);
+      stopAutoScroll();
     };
-  }, [dragging, handleMouseMove]);
+  }, [
+    autoScroll,
+    cancelDragging,
+    dragging,
+    handlePointerMove,
+    refreshDragLine,
+    runAutoScroll,
+    stopAutoScroll,
+  ]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    refreshLines();
+  }, [refreshLines]);
 
-    const newLines: Line[] = Object.entries(matches)
-      .map(([qId, aId]) => {
-        const startEl = questionRefs.current[Number(qId)];
-        const endEl = answerRefs.current[Number(aId)];
-        if (!startEl || !endEl) return null;
-        const start = getElementCenter(startEl, false);
-        const end = getElementCenter(endEl, true);
-        if (!start || !end) return null;
-        return { qId, aId: aId.toString(), start, end };
-      })
-      .filter(Boolean) as Line[];
-
-    setLines(newLines);
-  }, [matches, getElementCenter]);
+  useEffect(() => {
+    window.addEventListener("resize", refreshLines);
+    return () => window.removeEventListener("resize", refreshLines);
+  }, [refreshLines]);
 
   return (
     <div
@@ -171,26 +275,34 @@ export function Matching({
       ref={containerRef}
     >
       <svg className="absolute z-20 w-full h-full pointer-events-none">
-        {lines.map(({ qId, aId, start, end }) => (
-          <g key={`${qId}-${aId}`}>
-            <line
-              x1={start.x}
-              y1={start.y}
-              x2={end.x}
-              y2={end.y}
-              stroke={lineColor}
-              strokeWidth={3}
-              strokeLinecap="round"
-            />
-            <circle
-              cx={start.x}
-              cy={start.y}
-              r={circleRadius}
-              fill={circleColor}
-            />
-            <circle cx={end.x} cy={end.y} r={circleRadius} fill={circleColor} />
-          </g>
-        ))}
+        {lines.map((line) => {
+          const styles = getMatchStyles?.(line);
+          return (
+            <g key={`${line.questionId}-${line.answerId}`}>
+              <line
+                x1={line.start.x}
+                y1={line.start.y}
+                x2={line.end.x}
+                y2={line.end.y}
+                stroke={styles?.lineColor ?? lineColor}
+                strokeWidth={3}
+                strokeLinecap="round"
+              />
+              <circle
+                cx={line.start.x}
+                cy={line.start.y}
+                r={circleRadius}
+                fill={styles?.circleColor ?? circleColor}
+              />
+              <circle
+                cx={line.end.x}
+                cy={line.end.y}
+                r={circleRadius}
+                fill={styles?.circleColor ?? circleColor}
+              />
+            </g>
+          );
+        })}
         {dragLine && (
           <g>
             <line
@@ -203,62 +315,58 @@ export function Matching({
               strokeDasharray="5,5"
               strokeLinecap="round"
             />
-            <circle
-              cx={dragLine.start.x}
-              cy={dragLine.start.y}
-              r={circleRadius}
-              fill={circleColor}
-            />
-            <circle
-              cx={dragLine.end.x}
-              cy={dragLine.end.y}
-              r={circleRadius}
-              fill={circleColor}
-            />
+            <circle cx={dragLine.start.x} cy={dragLine.start.y} r={circleRadius} fill={circleColor} />
+            <circle cx={dragLine.end.x} cy={dragLine.end.y} r={circleRadius} fill={circleColor} />
           </g>
         )}
       </svg>
 
       <div className="relative z-10 space-y-3">
-        {questions.map((q) => {
-          const isMatched = matches[q.id] !== undefined;
+        {questions.map((question) => {
+          const answerId = matches[question.id];
+          const styles =
+            answerId === undefined
+              ? undefined
+              : getMatchStyles?.({ questionId: question.id, answerId });
           return (
             <button
-              key={q.id}
-              ref={(el) => void (questionRefs.current[q.id] = el)}
+              key={question.id}
+              ref={(element) => void (questionRefs.current[question.id] = element)}
               type="button"
               disabled={disabled}
-              onMouseDown={() => handleMouseDown(q.id)}
-              onClick={() => isMatched && removeMatch(q.id)}
+              onPointerDown={(event) => handlePointerDown(event, question.id)}
+              onClick={() => answerId !== undefined && removeMatch(question.id)}
               className={cn(
-                "p-4 rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
-                isMatched && "bg-gray-700",
-                questionClassName
+                "p-4 rounded bg-black text-white w-full touch-none font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
+                answerId !== undefined && "bg-gray-700",
+                questionClassName,
+                styles?.questionClassName
               )}
             >
-              {q.text}
+              {question.text}
             </button>
           );
         })}
       </div>
 
       <div className="relative z-10 space-y-3">
-        {answers.map((a) => {
-          const isMatched = Object.values(matches).includes(a.id);
+        {answers.map((answer) => {
+          const answerMatches = toMatches(matches).filter((match) => match.answerId === answer.id);
           return (
             <button
-              key={a.id}
-              ref={(el) => void (answerRefs.current[a.id] = el)}
+              key={answer.id}
+              ref={(element) => void (answerRefs.current[answer.id] = element)}
               type="button"
               disabled={disabled}
-              onMouseUp={() => handleMouseUp(a.id)}
+              onPointerUp={(event) => handlePointerUp(event, answer.id)}
               className={cn(
-                "p-4 rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
-                isMatched && "bg-gray-700",
-                answerClassName
+                "p-4 rounded bg-black text-white w-full touch-none font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
+                answerMatches.length > 0 && "bg-gray-700",
+                answerClassName,
+                answerMatches.map((match) => getMatchStyles?.(match)?.answerClassName)
               )}
             >
-              {a.text}
+              {answer.text}
             </button>
           );
         })}

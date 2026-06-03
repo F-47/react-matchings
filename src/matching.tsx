@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "./lib/utils";
 
 export type TMatch = {
@@ -21,6 +21,8 @@ export type TAutoScrollOptions = {
 export type MatchingProps = {
   questions: { id: number; text: string }[];
   answers: { id: number; text: string }[];
+  matches?: TMatch[];
+  defaultMatches?: TMatch[];
   className?: string;
   questionClassName?: string;
   answerClassName?: string;
@@ -52,6 +54,13 @@ function toMatches(matches: Record<number, number>): TMatch[] {
   }));
 }
 
+function toMatchRecord(matches: TMatch[] | undefined): Record<number, number> {
+  return (matches ?? []).reduce<Record<number, number>>((record, match) => {
+    record[match.questionId] = match.answerId;
+    return record;
+  }, {});
+}
+
 function findScrollableAncestor(element: HTMLElement): HTMLElement {
   let current = element.parentElement;
 
@@ -69,6 +78,8 @@ function findScrollableAncestor(element: HTMLElement): HTMLElement {
 export function Matching({
   questions,
   answers,
+  matches: controlledMatches,
+  defaultMatches,
   className,
   questionClassName,
   answerClassName,
@@ -82,7 +93,9 @@ export function Matching({
   getMatchStyles,
   onChange,
 }: MatchingProps) {
-  const [matches, setMatches] = useState<Record<number, number>>({});
+  const [uncontrolledMatches, setUncontrolledMatches] = useState<Record<number, number>>(() =>
+    toMatchRecord(defaultMatches)
+  );
   const [lines, setLines] = useState<Line[]>([]);
   const [dragging, setDragging] = useState<number | null>(null);
   const [dragLine, setDragLine] = useState<{ start: Point; end: Point } | null>(null);
@@ -93,6 +106,21 @@ export function Matching({
   const pointerRef = useRef<{ id: number; clientX: number; clientY: number } | null>(null);
   const scrollElementRef = useRef<HTMLElement | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
+  const isControlled = controlledMatches !== undefined;
+  const matches = useMemo(
+    () => (isControlled ? toMatchRecord(controlledMatches) : uncontrolledMatches),
+    [controlledMatches, isControlled, uncontrolledMatches]
+  );
+
+  const setMatches = useCallback(
+    (next: Record<number, number>) => {
+      if (!isControlled) {
+        setUncontrolledMatches(next);
+      }
+      queueMicrotask(() => onChange?.(toMatches(next)));
+    },
+    [isControlled, onChange]
+  );
 
   const getElementCenter = useCallback(
     (element: HTMLElement | null, isAnswer = false) => {
@@ -207,28 +235,22 @@ export function Matching({
 
   const handlePointerUp = (event: React.PointerEvent, answerId: number) => {
     if (dragging != null && pointerRef.current?.id === event.pointerId) {
-      setMatches((current) => {
-        const next = { ...current };
-        if (!allowAnswerReuse) {
-          for (const [questionId, matchedAnswerId] of Object.entries(next)) {
-            if (matchedAnswerId === answerId) delete next[Number(questionId)];
-          }
+      const next = { ...matches };
+      if (!allowAnswerReuse) {
+        for (const [questionId, matchedAnswerId] of Object.entries(next)) {
+          if (matchedAnswerId === answerId) delete next[Number(questionId)];
         }
-        next[dragging] = answerId;
-        queueMicrotask(() => onChange?.(toMatches(next)));
-        return next;
-      });
+      }
+      next[dragging] = answerId;
+      setMatches(next);
     }
     cancelDragging();
   };
 
   const removeMatch = (questionId: number) => {
-    setMatches((current) => {
-      const next = { ...current };
-      delete next[questionId];
-      queueMicrotask(() => onChange?.(toMatches(next)));
-      return next;
-    });
+    const next = { ...matches };
+    delete next[questionId];
+    setMatches(next);
   };
 
   useEffect(() => {

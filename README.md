@@ -12,7 +12,7 @@ Default styles are included automatically when the component is imported. Consum
 - Pointer support for mouse, touch, and pen input
 - Automatic scrolling while dragging near a scroll container edge
 - One-to-one answers by default, with optional answer reuse
-- Controlled change callback for saving or validating answers
+- Controlled matches and change callback for saving or validating answers
 - Custom classes for the container, question buttons, and answer buttons
 - Configurable connector line color, endpoint color, radius, and offset
 - Per-match styles for validation feedback
@@ -67,6 +67,8 @@ function App() {
 | ------------------- | -------------------------------- | ----------- | ------------------------------------------------------------ |
 | `questions`         | `{ id: number; text: string }[]` | Required    | Items rendered in the left column.                           |
 | `answers`           | `{ id: number; text: string }[]` | Required    | Items rendered in the right column.                          |
+| `matches`           | `TMatch[]`                       | `undefined` | Controlled match list. Use with `onChange` to own state.     |
+| `defaultMatches`    | `TMatch[]`                       | `undefined` | Initial match list for uncontrolled usage.                   |
 | `onChange`          | `(matches: TMatch[]) => void`    | `undefined` | Called whenever the user creates or removes a match.         |
 | `className`         | `string`                         | `undefined` | Additional classes for the root container.                   |
 | `questionClassName` | `string`                         | `undefined` | Additional classes for question buttons.                     |
@@ -107,6 +109,32 @@ type TAutoScrollOptions = {
 const handleChange = (matches: TMatch[]) => {
   // Example: [{ questionId: 1, answerId: 2 }]
 };
+```
+
+Use `defaultMatches` when you only need to seed the initial state:
+
+```tsx
+<Matching
+  questions={questions}
+  answers={answers}
+  defaultMatches={[{ questionId: 1, answerId: 2 }]}
+  onChange={setMatches}
+/>
+```
+
+Use `matches` when the parent owns the current value:
+
+```tsx
+const [matches, setMatches] = useState<TMatch[]>([
+  { questionId: 1, answerId: 2 },
+]);
+
+<Matching
+  questions={questions}
+  answers={answers}
+  matches={matches}
+  onChange={setMatches}
+/>
 ```
 
 ## Styling
@@ -170,6 +198,7 @@ export function Assessment() {
       <Matching
         questions={questions}
         answers={answers}
+        matches={matches}
         onChange={setMatches}
         disabled={submitted}
         getMatchStyles={(match) =>

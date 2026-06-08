@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "./lib/utils";
 
 export type TMatch = {
@@ -163,6 +170,11 @@ export function Matching({
     });
   }, [dragging, getElementCenter]);
 
+  const refreshLayout = useCallback(() => {
+    refreshLines();
+    refreshDragLine();
+  }, [refreshDragLine, refreshLines]);
+
   const stopAutoScroll = useCallback(() => {
     if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
     scrollFrameRef.current = null;
@@ -253,6 +265,10 @@ export function Matching({
     setMatches(next);
   };
 
+  useLayoutEffect(() => {
+    refreshLayout();
+  }, [refreshLayout, questions, answers, disabled, allowAnswerReuse]);
+
   useEffect(() => {
     if (dragging == null) return;
     refreshDragLine();
@@ -283,8 +299,26 @@ export function Matching({
   ]);
 
   useEffect(() => {
-    refreshLines();
-  }, [refreshLines]);
+    const element = containerRef.current;
+    if (!element || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      refreshLayout();
+    });
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [refreshLayout]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      refreshLayout();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [refreshLayout]);
 
   useEffect(() => {
     window.addEventListener("resize", refreshLines);

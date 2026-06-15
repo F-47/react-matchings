@@ -231,6 +231,10 @@ export function Matching({
   const handlePointerDown = (event: React.PointerEvent, questionId: number) => {
     if (disabled || !containerRef.current) return;
     event.preventDefault();
+    const target = event.currentTarget;
+    if (target.hasPointerCapture(event.pointerId)) {
+      target.releasePointerCapture(event.pointerId);
+    }
     pointerRef.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
     scrollElementRef.current = findScrollableAncestor(containerRef.current);
     setDragging(questionId);

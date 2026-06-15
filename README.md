@@ -258,7 +258,7 @@ npm pack
 Then install the generated tarball in a test React application:
 
 ```bash
-npm install /absolute/path/to/react-matchings/react-matchings-0.1.0.tgz
+npm install /absolute/path/to/react-matchings/react-matchings-0.1.3.tgz
 ```
 
 Import only the component:

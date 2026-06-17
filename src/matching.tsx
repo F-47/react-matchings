@@ -404,7 +404,12 @@ export function Matching({
               )}
             >
               {question.image ? (
-                <img src={question.image} alt={question.text} className="max-h-full max-w-full object-contain" />
+                <img
+                  src={question.image}
+                  alt={question.text}
+                  draggable={false}
+                  className="max-h-full max-w-full pointer-events-none object-contain select-none [-webkit-touch-callout:none]"
+                />
               ) : (
                 question.text
               )}
@@ -431,7 +436,12 @@ export function Matching({
               )}
             >
               {answer.image ? (
-                <img src={answer.image} alt={answer.text} className="max-h-full max-w-full object-contain" />
+                <img
+                  src={answer.image}
+                  alt={answer.text}
+                  draggable={false}
+                  className="max-h-full max-w-full pointer-events-none object-contain select-none [-webkit-touch-callout:none]"
+                />
               ) : (
                 answer.text
               )}

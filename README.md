@@ -13,6 +13,7 @@ Default styles are included automatically when the component is imported. Consum
 - Automatic scrolling while dragging near a scroll container edge
 - One-to-one answers by default, with optional answer reuse
 - Controlled matches and change callback for saving or validating answers
+- Image or text content for questions and answers
 - Custom classes for the container, question buttons, and answer buttons
 - Configurable connector line color, endpoint color, radius, and offset
 - Per-match styles for validation feedback
@@ -61,12 +62,18 @@ function App() {
 }
 ```
 
+Set `image` on a question or answer to render an image instead of its `text` (used for `alt`):
+
+```tsx
+const questions = [{ id: 1, text: "React logo", image: "/react-logo.png" }];
+```
+
 ## Props
 
 | Prop                | Type                             | Default     | Description                                                  |
 | ------------------- | -------------------------------- | ----------- | ------------------------------------------------------------ |
-| `questions`         | `{ id: number; text: string }[]` | Required    | Items rendered in the left column.                           |
-| `answers`           | `{ id: number; text: string }[]` | Required    | Items rendered in the right column.                          |
+| `questions`         | `{ id: number; text: string; image?: string }[]` | Required    | Items rendered in the left column. Set `image` to render an image instead of `text`. |
+| `answers`           | `{ id: number; text: string; image?: string }[]` | Required    | Items rendered in the right column. Set `image` to render an image instead of `text`. |
 | `matches`           | `TMatch[]`                       | `undefined` | Controlled match list. Use with `onChange` to own state.     |
 | `defaultMatches`    | `TMatch[]`                       | `undefined` | Initial match list for uncontrolled usage.                   |
 | `onChange`          | `(matches: TMatch[]) => void`    | `undefined` | Called whenever the user creates or removes a match.         |
@@ -258,7 +265,7 @@ npm pack
 Then install the generated tarball in a test React application:
 
 ```bash
-npm install /absolute/path/to/react-matchings/react-matchings-0.1.3.tgz
+npm install /absolute/path/to/react-matchings/react-matchings-0.1.4.tgz
 ```
 
 Import only the component:

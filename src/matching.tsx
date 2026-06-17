@@ -26,8 +26,8 @@ export type TAutoScrollOptions = {
 };
 
 export type MatchingProps = {
-  questions: { id: number; text: string }[];
-  answers: { id: number; text: string }[];
+  questions: { id: number; text: string; image?: string }[];
+  answers: { id: number; text: string; image?: string }[];
   matches?: TMatch[];
   defaultMatches?: TMatch[];
   className?: string;
@@ -403,7 +403,11 @@ export function Matching({
                 styles?.questionClassName
               )}
             >
-              {question.text}
+              {question.image ? (
+                <img src={question.image} alt={question.text} className="max-h-full max-w-full object-contain" />
+              ) : (
+                question.text
+              )}
             </button>
           );
         })}
@@ -426,7 +430,11 @@ export function Matching({
                 answerMatches.map((match) => getMatchStyles?.(match)?.answerClassName)
               )}
             >
-              {answer.text}
+              {answer.image ? (
+                <img src={answer.image} alt={answer.text} className="max-h-full max-w-full object-contain" />
+              ) : (
+                answer.text
+              )}
             </button>
           );
         })}

@@ -40,6 +40,7 @@ export type MatchingProps = {
   disabled?: boolean;
   allowAnswerReuse?: boolean;
   autoScroll?: boolean | TAutoScrollOptions;
+  dragHandle?: boolean;
   getMatchStyles?: (match: TMatch) => TMatchStyles | undefined;
   onChange?: (matches: TMatch[]) => void;
 };
@@ -53,7 +54,6 @@ type Line = TMatch & {
 
 const DEFAULT_EDGE_THRESHOLD = 64;
 const DEFAULT_MAX_SCROLL_SPEED = 16;
-const DRAG_THRESHOLD = 8;
 
 function toMatches(matches: Record<number, number>): TMatch[] {
   return Object.entries(matches).map(([questionId, answerId]) => ({
@@ -83,6 +83,19 @@ function findScrollableAncestor(element: HTMLElement): HTMLElement {
   return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
+function GripIcon() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+      <circle cx="2" cy="2" r="1.5" />
+      <circle cx="8" cy="2" r="1.5" />
+      <circle cx="2" cy="8" r="1.5" />
+      <circle cx="8" cy="8" r="1.5" />
+      <circle cx="2" cy="14" r="1.5" />
+      <circle cx="8" cy="14" r="1.5" />
+    </svg>
+  );
+}
+
 export function Matching({
   questions,
   answers,
@@ -98,6 +111,7 @@ export function Matching({
   disabled,
   allowAnswerReuse = false,
   autoScroll = true,
+  dragHandle = false,
   getMatchStyles,
   onChange,
 }: MatchingProps) {
@@ -112,10 +126,8 @@ export function Matching({
   const questionRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const answerRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const pointerRef = useRef<{ id: number; clientX: number; clientY: number } | null>(null);
-  const pendingDragRef = useRef<{ questionId: number; startX: number; startY: number } | null>(null);
   const scrollElementRef = useRef<HTMLElement | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
-  const [isTracking, setIsTracking] = useState(false);
   const isControlled = controlledMatches !== undefined;
   const matches = useMemo(
     () => (isControlled ? toMatchRecord(controlledMatches) : uncontrolledMatches),
@@ -225,45 +237,29 @@ export function Matching({
   }, [autoScroll, dragging, refreshDragLine, refreshLines]);
 
   const cancelDragging = useCallback(() => {
-    pendingDragRef.current = null;
     setDragging(null);
     setDragLine(null);
-    setIsTracking(false);
     pointerRef.current = null;
     stopAutoScroll();
   }, [stopAutoScroll]);
 
   const handlePointerDown = (event: React.PointerEvent, questionId: number) => {
     if (disabled || !containerRef.current) return;
+    event.preventDefault();
     const target = event.currentTarget;
     if (target.hasPointerCapture(event.pointerId)) {
       target.releasePointerCapture(event.pointerId);
     }
     pointerRef.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
-    pendingDragRef.current = { questionId, startX: event.clientX, startY: event.clientY };
     scrollElementRef.current = findScrollableAncestor(containerRef.current);
-    setIsTracking(true);
+    setDragging(questionId);
   };
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
-      if (pointerRef.current?.id !== event.pointerId) return;
+      if (dragging == null || pointerRef.current?.id !== event.pointerId) return;
       pointerRef.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
-
-      if (pendingDragRef.current !== null) {
-        const dx = event.clientX - pendingDragRef.current.startX;
-        const dy = event.clientY - pendingDragRef.current.startY;
-        if (Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD) {
-          event.preventDefault();
-          setDragging(pendingDragRef.current.questionId);
-          pendingDragRef.current = null;
-        }
-        return;
-      }
-
-      if (dragging !== null) {
-        refreshDragLine();
-      }
+      refreshDragLine();
     },
     [dragging, refreshDragLine]
   );
@@ -292,33 +288,34 @@ export function Matching({
     refreshLayout();
   }, [refreshLayout, questions, answers, disabled, allowAnswerReuse]);
 
-  // Attach document listeners as soon as a touch starts (before threshold is reached),
-  // so we can detect movement intent and cancel without missing events.
-  useEffect(() => {
-    if (!isTracking) return;
-    const handleUp = (event: PointerEvent) => {
-      if (pointerRef.current?.id === event.pointerId) cancelDragging();
-    };
-    document.addEventListener("pointermove", handlePointerMove, { passive: false });
-    document.addEventListener("pointerup", handleUp);
-    document.addEventListener("pointercancel", handleUp);
-    return () => {
-      document.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("pointerup", handleUp);
-      document.removeEventListener("pointercancel", handleUp);
-    };
-  }, [isTracking, cancelDragging, handlePointerMove]);
-
   useEffect(() => {
     if (dragging == null) return;
     refreshDragLine();
     if (autoScroll !== false && scrollFrameRef.current === null) {
       scrollFrameRef.current = requestAnimationFrame(runAutoScroll);
     }
+
+    const handleUp = (event: PointerEvent) => {
+      if (pointerRef.current?.id === event.pointerId) cancelDragging();
+    };
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handleUp);
+    document.addEventListener("pointercancel", handleUp);
     return () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handleUp);
+      document.removeEventListener("pointercancel", handleUp);
       stopAutoScroll();
     };
-  }, [autoScroll, dragging, refreshDragLine, runAutoScroll, stopAutoScroll]);
+  }, [
+    autoScroll,
+    cancelDragging,
+    dragging,
+    handlePointerMove,
+    refreshDragLine,
+    runAutoScroll,
+    stopAutoScroll,
+  ]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -406,30 +403,44 @@ export function Matching({
             answerId === undefined
               ? undefined
               : getMatchStyles?.({ questionId: question.id, answerId });
+          const content = question.image ? (
+            <img
+              src={question.image}
+              alt={question.text}
+              draggable={false}
+              className="max-h-full max-w-full pointer-events-none object-contain select-none [-webkit-touch-callout:none]"
+            />
+          ) : (
+            question.text
+          );
           return (
             <button
               key={question.id}
               ref={(element) => void (questionRefs.current[question.id] = element)}
               type="button"
               disabled={disabled}
-              onPointerDown={(event) => handlePointerDown(event, question.id)}
+              onPointerDown={dragHandle ? undefined : (event) => handlePointerDown(event, question.id)}
               onClick={() => answerId !== undefined && removeMatch(question.id)}
               className={cn(
-                "p-4 rounded bg-black text-white w-full touch-pan-y font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
+                "rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
+                dragHandle ? "touch-pan-y flex items-center" : "touch-none p-4",
                 answerId !== undefined && "bg-gray-700",
                 questionClassName,
                 styles?.questionClassName
               )}
             >
-              {question.image ? (
-                <img
-                  src={question.image}
-                  alt={question.text}
-                  draggable={false}
-                  className="max-h-full max-w-full pointer-events-none object-contain select-none [-webkit-touch-callout:none]"
-                />
+              {dragHandle ? (
+                <>
+                  <span className="flex-1 p-4 text-left">{content}</span>
+                  <span
+                    onPointerDown={(event) => handlePointerDown(event, question.id)}
+                    className="touch-none flex-shrink-0 px-3 py-4 opacity-40 hover:opacity-80 cursor-grab active:cursor-grabbing"
+                  >
+                    <GripIcon />
+                  </span>
+                </>
               ) : (
-                question.text
+                content
               )}
             </button>
           );
@@ -447,7 +458,8 @@ export function Matching({
               disabled={disabled}
               onPointerUp={(event) => handlePointerUp(event, answer.id)}
               className={cn(
-                "p-4 rounded bg-black text-white w-full touch-pan-y font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
+                "p-4 rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
+                dragHandle ? "touch-pan-y" : "touch-none",
                 answerMatches.length > 0 && "bg-gray-700",
                 answerClassName,
                 answerMatches.map((match) => getMatchStyles?.(match)?.answerClassName)

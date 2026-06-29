@@ -54,6 +54,7 @@ type Line = TMatch & {
 
 const DEFAULT_EDGE_THRESHOLD = 64;
 const DEFAULT_MAX_SCROLL_SPEED = 16;
+const DRAG_THRESHOLD = 8;
 
 function toMatches(matches: Record<number, number>): TMatch[] {
   return Object.entries(matches).map(([questionId, answerId]) => ({
@@ -126,8 +127,10 @@ export function Matching({
   const questionRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const answerRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const pointerRef = useRef<{ id: number; clientX: number; clientY: number } | null>(null);
+  const pendingDragRef = useRef<{ questionId: number; startX: number; startY: number } | null>(null);
   const scrollElementRef = useRef<HTMLElement | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
+  const [isTracking, setIsTracking] = useState(false);
   const isControlled = controlledMatches !== undefined;
   const matches = useMemo(
     () => (isControlled ? toMatchRecord(controlledMatches) : uncontrolledMatches),
@@ -237,8 +240,10 @@ export function Matching({
   }, [autoScroll, dragging, refreshDragLine, refreshLines]);
 
   const cancelDragging = useCallback(() => {
+    pendingDragRef.current = null;
     setDragging(null);
     setDragLine(null);
+    setIsTracking(false);
     pointerRef.current = null;
     stopAutoScroll();
   }, [stopAutoScroll]);
@@ -251,15 +256,29 @@ export function Matching({
       target.releasePointerCapture(event.pointerId);
     }
     pointerRef.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+    pendingDragRef.current = { questionId, startX: event.clientX, startY: event.clientY };
     scrollElementRef.current = findScrollableAncestor(containerRef.current);
-    setDragging(questionId);
+    setIsTracking(true);
   };
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
-      if (dragging == null || pointerRef.current?.id !== event.pointerId) return;
+      if (pointerRef.current?.id !== event.pointerId) return;
       pointerRef.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY };
-      refreshDragLine();
+
+      if (pendingDragRef.current !== null) {
+        const dx = event.clientX - pendingDragRef.current.startX;
+        const dy = event.clientY - pendingDragRef.current.startY;
+        if (Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD) {
+          setDragging(pendingDragRef.current.questionId);
+          pendingDragRef.current = null;
+        }
+        return;
+      }
+
+      if (dragging !== null) {
+        refreshDragLine();
+      }
     },
     [dragging, refreshDragLine]
   );
@@ -289,12 +308,7 @@ export function Matching({
   }, [refreshLayout, questions, answers, disabled, allowAnswerReuse]);
 
   useEffect(() => {
-    if (dragging == null) return;
-    refreshDragLine();
-    if (autoScroll !== false && scrollFrameRef.current === null) {
-      scrollFrameRef.current = requestAnimationFrame(runAutoScroll);
-    }
-
+    if (!isTracking) return;
     const handleUp = (event: PointerEvent) => {
       if (pointerRef.current?.id === event.pointerId) cancelDragging();
     };
@@ -305,17 +319,19 @@ export function Matching({
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handleUp);
       document.removeEventListener("pointercancel", handleUp);
+    };
+  }, [isTracking, cancelDragging, handlePointerMove]);
+
+  useEffect(() => {
+    if (dragging == null) return;
+    refreshDragLine();
+    if (autoScroll !== false && scrollFrameRef.current === null) {
+      scrollFrameRef.current = requestAnimationFrame(runAutoScroll);
+    }
+    return () => {
       stopAutoScroll();
     };
-  }, [
-    autoScroll,
-    cancelDragging,
-    dragging,
-    handlePointerMove,
-    refreshDragLine,
-    runAutoScroll,
-    stopAutoScroll,
-  ]);
+  }, [autoScroll, dragging, refreshDragLine, runAutoScroll, stopAutoScroll]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -459,7 +475,7 @@ export function Matching({
               onPointerUp={(event) => handlePointerUp(event, answer.id)}
               className={cn(
                 "p-4 rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
-                dragHandle ? "touch-pan-y" : "touch-none",
+                "touch-none",
                 answerMatches.length > 0 && "bg-gray-700",
                 answerClassName,
                 answerMatches.map((match) => getMatchStyles?.(match)?.answerClassName)

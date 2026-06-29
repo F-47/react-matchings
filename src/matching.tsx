@@ -121,6 +121,7 @@ export function Matching({
   );
   const [lines, setLines] = useState<Line[]>([]);
   const [dragging, setDragging] = useState<number | null>(null);
+  const draggingRef = useRef<number | null>(null);
   const [dragLine, setDragLine] = useState<{ start: Point; end: Point } | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -241,6 +242,7 @@ export function Matching({
 
   const cancelDragging = useCallback(() => {
     pendingDragRef.current = null;
+    draggingRef.current = null;
     setDragging(null);
     setDragLine(null);
     setIsTracking(false);
@@ -250,7 +252,10 @@ export function Matching({
 
   const handlePointerDown = (event: React.PointerEvent, questionId: number) => {
     if (disabled || !containerRef.current) return;
-    event.preventDefault();
+    // When dragHandle is true the handle element has touch-none, so preventing
+    // scroll here is intentional. Without dragHandle the full button is the
+    // touch target and we must not block scroll until the drag threshold is met.
+    if (dragHandle) event.preventDefault();
     const target = event.currentTarget;
     if (target.hasPointerCapture(event.pointerId)) {
       target.releasePointerCapture(event.pointerId);
@@ -270,6 +275,9 @@ export function Matching({
         const dx = event.clientX - pendingDragRef.current.startX;
         const dy = event.clientY - pendingDragRef.current.startY;
         if (Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD) {
+          // Stop any in-progress scroll now that drag intent is confirmed.
+          event.preventDefault();
+          draggingRef.current = pendingDragRef.current.questionId;
           setDragging(pendingDragRef.current.questionId);
           pendingDragRef.current = null;
         }
@@ -284,14 +292,15 @@ export function Matching({
   );
 
   const handlePointerUp = (event: React.PointerEvent, answerId: number) => {
-    if (dragging != null && pointerRef.current?.id === event.pointerId) {
+    const currentDragging = draggingRef.current;
+    if (currentDragging != null && pointerRef.current?.id === event.pointerId) {
       const next = { ...matches };
       if (!allowAnswerReuse) {
         for (const [questionId, matchedAnswerId] of Object.entries(next)) {
           if (matchedAnswerId === answerId) delete next[Number(questionId)];
         }
       }
-      next[dragging] = answerId;
+      next[currentDragging] = answerId;
       setMatches(next);
     }
     cancelDragging();
@@ -312,7 +321,7 @@ export function Matching({
     const handleUp = (event: PointerEvent) => {
       if (pointerRef.current?.id === event.pointerId) cancelDragging();
     };
-    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointermove", handlePointerMove, { passive: false });
     document.addEventListener("pointerup", handleUp);
     document.addEventListener("pointercancel", handleUp);
     return () => {
@@ -439,7 +448,7 @@ export function Matching({
               onClick={() => answerId !== undefined && removeMatch(question.id)}
               className={cn(
                 "rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
-                dragHandle ? "touch-pan-y flex items-center" : "touch-none p-4",
+                dragHandle ? "touch-pan-y flex items-center" : "touch-pan-y p-4",
                 answerId !== undefined && "bg-gray-700",
                 questionClassName,
                 styles?.questionClassName
@@ -475,7 +484,7 @@ export function Matching({
               onPointerUp={(event) => handlePointerUp(event, answer.id)}
               className={cn(
                 "p-4 rounded bg-black text-white w-full font-medium focus:outline-none focus:ring-2 focus:ring-gray-500",
-                "touch-none",
+                dragHandle ? "touch-pan-y" : "touch-none",
                 answerMatches.length > 0 && "bg-gray-700",
                 answerClassName,
                 answerMatches.map((match) => getMatchStyles?.(match)?.answerClassName)

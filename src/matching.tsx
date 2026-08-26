@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { cn } from "./lib/utils";
 
@@ -25,9 +26,16 @@ export type TAutoScrollOptions = {
   maxSpeed?: number;
 };
 
+export type MatchingItem = {
+  id: number;
+  text: string;
+  /** Image URL string, or a custom React node (e.g. a fully styled media component). */
+  image?: ReactNode;
+};
+
 export type MatchingProps = {
-  questions: { id: number; text: string; image?: string }[];
-  answers: { id: number; text: string; image?: string }[];
+  questions: MatchingItem[];
+  answers: MatchingItem[];
   matches?: TMatch[];
   defaultMatches?: TMatch[];
   className?: string;
@@ -95,6 +103,21 @@ function GripIcon() {
       <circle cx="8" cy="14" r="1.5" />
     </svg>
   );
+}
+
+function renderItemContent(item: MatchingItem): ReactNode {
+  if (!item.image) return item.text;
+  if (typeof item.image === "string") {
+    return (
+      <img
+        src={item.image}
+        alt={item.text}
+        draggable={false}
+        className="max-h-full max-w-full pointer-events-none object-contain select-none [-webkit-touch-callout:none]"
+      />
+    );
+  }
+  return item.image;
 }
 
 export function Matching({
@@ -428,16 +451,7 @@ export function Matching({
             answerId === undefined
               ? undefined
               : getMatchStyles?.({ questionId: question.id, answerId });
-          const content = question.image ? (
-            <img
-              src={question.image}
-              alt={question.text}
-              draggable={false}
-              className="max-h-full max-w-full pointer-events-none object-contain select-none [-webkit-touch-callout:none]"
-            />
-          ) : (
-            question.text
-          );
+          const content = renderItemContent(question);
           return (
             <button
               key={question.id}
@@ -490,16 +504,7 @@ export function Matching({
                 answerMatches.map((match) => getMatchStyles?.(match)?.answerClassName)
               )}
             >
-              {answer.image ? (
-                <img
-                  src={answer.image}
-                  alt={answer.text}
-                  draggable={false}
-                  className="max-h-full max-w-full pointer-events-none object-contain select-none [-webkit-touch-callout:none]"
-                />
-              ) : (
-                answer.text
-              )}
+              {renderItemContent(answer)}
             </button>
           );
         })}

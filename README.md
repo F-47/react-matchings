@@ -68,12 +68,30 @@ Set `image` on a question or answer to render an image instead of its `text` (us
 const questions = [{ id: 1, text: "React logo", image: "/react-logo.png" }];
 ```
 
+`image` also accepts any React node, so you can fully control how media is rendered (custom containers, aspect ratios, effects):
+
+```tsx
+const questions = [
+  {
+    id: 1,
+    text: "React logo",
+    image: (
+      <span className="block aspect-square overflow-hidden">
+        <img src="/react-logo.png" alt="" className="h-full w-full object-contain" />
+      </span>
+    ),
+  },
+];
+```
+
+When `image` is a React node it is rendered as-is inside the item button; strings keep the built-in `object-contain` treatment.
+
 ## Props
 
 | Prop                | Type                             | Default     | Description                                                  |
 | ------------------- | -------------------------------- | ----------- | ------------------------------------------------------------ |
-| `questions`         | `{ id: number; text: string; image?: string }[]` | Required    | Items rendered in the left column. Set `image` to render an image instead of `text`. |
-| `answers`           | `{ id: number; text: string; image?: string }[]` | Required    | Items rendered in the right column. Set `image` to render an image instead of `text`. |
+| `questions`         | `MatchingItem[]`                 | Required    | Items rendered in the left column. Set `image` to a URL string for built-in rendering, or a React node for full control. |
+| `answers`           | `MatchingItem[]`                 | Required    | Items rendered in the right column. Same `image` behavior as `questions`. |
 | `matches`           | `TMatch[]`                       | `undefined` | Controlled match list. Use with `onChange` to own state.     |
 | `defaultMatches`    | `TMatch[]`                       | `undefined` | Initial match list for uncontrolled usage.                   |
 | `onChange`          | `(matches: TMatch[]) => void`    | `undefined` | Called whenever the user creates or removes a match.         |
@@ -87,11 +105,18 @@ const questions = [{ id: 1, text: "React logo", image: "/react-logo.png" }];
 | `disabled`          | `boolean`                        | `false`     | Prevents users from creating or removing matches.            |
 | `allowAnswerReuse`  | `boolean`                        | `false`     | Allows multiple questions to connect to the same answer.     |
 | `autoScroll`        | `boolean \| TAutoScrollOptions`  | `true`      | Scrolls the nearest overflow container while dragging near an edge. |
+| `dragHandle`        | `boolean`                        | `false`     | Restricts drag start to a dedicated grip handle per question. |
 | `getMatchStyles`    | `(match: TMatch) => TMatchStyles \| undefined` | `undefined` | Returns connector and item styles for an established match. |
 
 ## Types
 
 ```tsx
+type MatchingItem = {
+  id: number;
+  text: string;
+  image?: ReactNode;
+};
+
 type TMatch = {
   questionId: number;
   answerId: number;
